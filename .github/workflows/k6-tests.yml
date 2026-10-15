@@ -1,0 +1,61 @@
+name: k6 Load Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  k6-tests:
+    name: Run k6 tests against API
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start services
+        run: |
+          docker compose up --build -d
+          for i in {1..30}; do
+            if curl -sf http://localhost:8000/api/health; then
+              echo "API is up"
+              break
+            fi
+            echo "Waiting for API... ($i)"
+            sleep 2
+          done
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Prepare reports directory
+        run: mkdir -p reports
+
+      - name: Run smoke test
+        run: k6 run K6/tests/smoke-test.js
+        env:
+          API_URL: http://localhost:8000
+
+      - name: Run load test
+        run: k6 run --out json=reports/load.json -e VUS=100 -e DURATION=1m K6/tests/users-test.js
+        env:
+          API_URL: http://localhost:8000
+
+      - name: Upload k6 reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-reports
+          path: reports/
+
+      - name: Stop services
+        if: always()
+        run: docker compose down -v
