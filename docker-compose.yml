@@ -1,8 +1,22 @@
-version: '3.8'
-
 services:
-  db:
+  # Master
+  postgres:
     image: postgres:16-alpine
+    container_name: travel_planner_master
+    command:
+      - "postgres"
+      - "-c"
+      - "listen_addresses=*"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_replication_slots=10"
+      - "-c"
+      - "max_wal_senders=10"
+      - "-c"
+      - "max_logical_replication_workers=4"
+      - "-c"
+      - "max_worker_processes=10"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -10,26 +24,53 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+
+      - ./db/migrations/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/replications/publisher/000_create_repuser.sql:/docker-entrypoint-initdb.d/02-create_repuser.sql:ro
+      - ./db/replications/publisher/010_create_publication.sql:/docker-entrypoint-initdb.d/03-create_publication.sql:ro
+      - ./db/replications/publisher/020_pg_hba.sh:/docker-entrypoint-initdb.d/04-pg_hba.sh:ro
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d travel_db"]
       interval: 5s
       timeout: 5s
       retries: 10
 
+  # Slave
+  postgres_sub:
+    image: postgres:16-alpine
+    container_name: travel_planner_replica
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: travel_db
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+      - ./db/migrations/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/replications/subscriber/800_wait_for_publisher.sh:/docker-entrypoint-initdb.d/02-wait.sh:ro
+      - ./db/replications/subscriber/900_create_subscription.sql:/docker-entrypoint-initdb.d/03-subscription.sql:ro
+    ports:
+      - "55432:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # API
   api:
     build: .
     ports:
       - "8000:8000"
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/travel_db
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/travel_db
       DB_POOL_MIN: 2
-      DB_POOL_MAX: 20
+      DB_POOL_MAX: 90
     restart: unless-stopped
 
 volumes:
-  pgdata:
+  postgres_data:
+  postgres_replica_data:
