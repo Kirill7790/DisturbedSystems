@@ -1,0 +1,23 @@
+[general]
+host = "0.0.0.0"
+port = 6432
+admin_username = "admin"
+admin_password = "admin"
+
+[pools.travel_db]
+pool_mode = "transaction"
+default_role = "any"
+query_parser_enabled = true
+primary_reads_enabled = true
+
+[pools.travel_db.users.0]
+username = "postgres"
+password = "postgres"
+pool_size = 20
+
+[pools.travel_db.shards.0]
+servers = [
+    ["postgres", 5432, "primary"],
+    ["postgres_sub", 5432, "replica"]
+]
+database = "travel_db"
