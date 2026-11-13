@@ -1,3 +1,10 @@
+networks:
+  travel_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
 services:
   # Master
   postgres:
@@ -19,15 +26,11 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: travel_db
       POSTGRES_HOST_AUTH_METHOD: "trust"
-
       REPLICATION_USER: repuser
       REPLICATION_PASSWORD: rep_pass
 
-    ports:
-      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
       - ./db/migrations/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./db/replications/physical/01_create_repuser.sh:/docker-entrypoint-initdb.d/02-create_repuser.sh:ro
       - ./db/replications/physical/02_pg_hba.sh:/docker-entrypoint-initdb.d/03-pg_hba.sh:ro
@@ -38,6 +41,9 @@ services:
       timeout: 5s
       retries: 10
 
+    networks:
+      - travel_net
+
   # Replica
   postgres_sub:
     image: postgres:16-alpine
@@ -46,26 +52,29 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: travel_db
-
       REPLICATION_USER: repuser
       REPLICATION_PASSWORD: rep_pass
       PGPASSWORD: rep_pass
 
-    ports:
-      - "127.0.0.1:55432:5432"
     depends_on:
       postgres:
         condition: service_healthy
+
     volumes:
       - postgres_replica_data:/var/lib/postgresql/data
       - ./db/replications/physical/03_replica_entrypoint.sh:/usr/local/bin/replica_entrypoint.sh:ro
+
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d travel_db" ]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d travel_db"]
       interval: 5s
       timeout: 5s
       retries: 10
+
     entrypoint: ["/bin/bash", "/usr/local/bin/replica_entrypoint.sh"]
     command: ["postgres", "-c", "hot_standby=on"]
+
+    networks:
+      - travel_net
 
   # PgCat
   pgcat:
@@ -73,8 +82,7 @@ services:
     container_name: travel_planner_pgcat
     volumes:
       - ./pgcat.toml:/etc/pgcat/pgcat.toml:ro
-    ports:
-      - "127.0.0.1:6432:6432"
+
     depends_on:
       postgres:
         condition: service_healthy
@@ -82,19 +90,28 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+    networks:
+      - travel_net
+
   # API
   api:
     build: .
     ports:
       - "127.0.0.1:8000:8000"
+
     depends_on:
       pgcat:
         condition: service_started
+
     environment:
       DATABASE_URL: postgresql://postgres:postgres@pgcat:6432/travel_db
       DB_POOL_MIN: 2
       DB_POOL_MAX: 90
+
     restart: unless-stopped
+
+    networks:
+      - travel_net
 
 volumes:
   postgres_data:
