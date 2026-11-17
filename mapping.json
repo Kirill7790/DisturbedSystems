@@ -1,0 +1,18 @@
+{
+  "0": {"host": "postgres_00", "port": 5432, "dbname": "db_0"},
+  "1": {"host": "postgres_00", "port": 5432, "dbname": "db_1"},
+  "2": {"host": "postgres_00", "port": 5432, "dbname": "db_2"},
+  "3": {"host": "postgres_00", "port": 5432, "dbname": "db_3"},
+  "4": {"host": "postgres_01", "port": 5432, "dbname": "db_4"},
+  "5": {"host": "postgres_01", "port": 5432, "dbname": "db_5"},
+  "6": {"host": "postgres_01", "port": 5432, "dbname": "db_6"},
+  "7": {"host": "postgres_01", "port": 5432, "dbname": "db_7"},
+  "8": {"host": "postgres_02", "port": 5432, "dbname": "db_8"},
+  "9": {"host": "postgres_02", "port": 5432, "dbname": "db_9"},
+  "a": {"host": "postgres_02", "port": 5432, "dbname": "db_a"},
+  "b": {"host": "postgres_02", "port": 5432, "dbname": "db_b"},
+  "c": {"host": "postgres_03", "port": 5432, "dbname": "db_c"},
+  "d": {"host": "postgres_03", "port": 5432, "dbname": "db_d"},
+  "e": {"host": "postgres_03", "port": 5432, "dbname": "db_e"},
+  "f": {"host": "postgres_03", "port": 5432, "dbname": "db_f"}
+}

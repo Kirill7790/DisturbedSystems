@@ -1,5 +1,8 @@
 from flask import jsonify
 from werkzeug.exceptions import HTTPException
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ApiError(Exception):
@@ -24,5 +27,6 @@ def register_error_handlers(app):
         return jsonify({"error": e.name, "details": e.description}), e.code
 
     @app.errorhandler(Exception)
-    def handle_unexpected():
+    def handle_unexpected(e):
+        logger.exception("Unhandled error: %s", e)
         return jsonify({"error": "Internal server error"}), 500

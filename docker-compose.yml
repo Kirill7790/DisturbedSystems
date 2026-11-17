@@ -6,90 +6,84 @@ networks:
         - subnet: 172.28.0.0/16
 
 services:
-  # Master
-  postgres:
-    image: postgres:16-alpine
-    container_name: travel_planner_master
-    command:
-      - "postgres"
-      - "-c"
-      - "listen_addresses=*"
-      - "-c"
-      - "wal_level=replica"
-      - "-c"
-      - "max_wal_senders=10"
-      - "-c"
-      - "max_replication_slots=10"
 
+  # Node 0: db_0..db_3
+  postgres_00:
+    image: postgres:16-alpine
+    container_name: postgres_00
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: travel_db
-      POSTGRES_HOST_AUTH_METHOD: "trust"
-      REPLICATION_USER: repuser
-      REPLICATION_PASSWORD: rep_pass
-
+      POSTGRES_DB: postgres
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./db/migrations/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./db/replications/physical/01_create_repuser.sh:/docker-entrypoint-initdb.d/02-create_repuser.sh:ro
-      - ./db/replications/physical/02_pg_hba.sh:/docker-entrypoint-initdb.d/03-pg_hba.sh:ro
-
+      - pgdata_00:/var/lib/postgresql/data
+      - ./db/shards/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      - ./db/shards/init_node_00.sh:/docker-entrypoint-initdb.d/init.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d travel_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 10
-
     networks:
       - travel_net
 
-  # Replica
-  postgres_sub:
+  # Node 1: db_4..db_7
+  postgres_01:
     image: postgres:16-alpine
-    container_name: travel_planner_replica
+    container_name: postgres_01
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: travel_db
-      REPLICATION_USER: repuser
-      REPLICATION_PASSWORD: rep_pass
-      PGPASSWORD: rep_pass
-
-    depends_on:
-      postgres:
-        condition: service_healthy
-
+      POSTGRES_DB: postgres
     volumes:
-      - postgres_replica_data:/var/lib/postgresql/data
-      - ./db/replications/physical/03_replica_entrypoint.sh:/usr/local/bin/replica_entrypoint.sh:ro
-
+      - pgdata_01:/var/lib/postgresql/data
+      - ./db/shards/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      - ./db/shards/init_node_01.sh:/docker-entrypoint-initdb.d/init.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d travel_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 10
-
-    entrypoint: ["/bin/bash", "/usr/local/bin/replica_entrypoint.sh"]
-    command: ["postgres", "-c", "hot_standby=on"]
-
     networks:
       - travel_net
 
-  # PgCat
-  pgcat:
-    image: ghcr.io/postgresml/pgcat:latest
-    container_name: travel_planner_pgcat
+  # Node 2: db_8..db_b
+  postgres_02:
+    image: postgres:16-alpine
+    container_name: postgres_02
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
     volumes:
-      - ./pgcat.toml:/etc/pgcat/pgcat.toml:ro
+      - pgdata_02:/var/lib/postgresql/data
+      - ./db/shards/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      - ./db/shards/init_node_02.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - travel_net
 
-    depends_on:
-      postgres:
-        condition: service_healthy
-      postgres_sub:
-        condition: service_healthy
-    restart: unless-stopped
-
+  # Node 3: db_c..db_f
+  postgres_03:
+    image: postgres:16-alpine
+    container_name: postgres_03
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - pgdata_03:/var/lib/postgresql/data
+      - ./db/shards/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      - ./db/shards/init_node_03.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - travel_net
 
@@ -98,21 +92,27 @@ services:
     build: .
     ports:
       - "127.0.0.1:8000:8000"
-
+    volumes:
+      - ./mapping.json:/app/mapping.json:ro
     depends_on:
-      pgcat:
-        condition: service_started
-
+      postgres_00:
+        condition: service_healthy
+      postgres_01:
+        condition: service_healthy
+      postgres_02:
+        condition: service_healthy
+      postgres_03:
+        condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@pgcat:6432/travel_db
-      DB_POOL_MIN: 2
-      DB_POOL_MAX: 90
-
-    restart: unless-stopped
-
+      SHARDS_USER: postgres
+      SHARDS_PASSWORD: postgres
+      DB_POOL_MIN: 1
+      DB_POOL_MAX: 10
     networks:
       - travel_net
 
 volumes:
-  postgres_data:
-  postgres_replica_data:
+  pgdata_00:
+  pgdata_01:
+  pgdata_02:
+  pgdata_03:

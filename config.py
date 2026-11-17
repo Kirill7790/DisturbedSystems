@@ -9,5 +9,5 @@ class Config:
         "postgresql://postgres:1234@localhost:5432/travel_db",
     )
     DB_POOL_MIN = 2
-    DB_POOL_MAX = 20
+    DB_POOL_MAX = 100
     JSON_SORT_KEYS = False

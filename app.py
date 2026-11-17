@@ -2,13 +2,25 @@ from flask import Flask, jsonify
 from config import Config
 from errors import register_error_handlers
 from routes import register_routes
-from db import pool
+import sharding
+from datetime import date, datetime
+from flask.json.provider import DefaultJSONProvider
+import json
+
+class CustomJSONProvider(DefaultJSONProvider):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        if isinstance(obj, date):
+            return obj.isoformat()
+        return super().default(obj)
 
 
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+    app.json = CustomJSONProvider(app)
     app.json.sort_keys = False
     app.json.ensure_ascii = False
 
@@ -18,11 +30,11 @@ def create_app():
     @app.get("/api/health")
     def health():
         try:
-            with pool.connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("SELECT 1")
+            with sharding.get_cursor_for_shard("0") as cur:
+                cur.execute("SELECT 1")
             return jsonify({"status": "ok"}), 200
-        except Exception:
+        except Exception as e:
+            print(f"Health check failed: {e}")
             return jsonify({"status": "unavailable"}), 503
 
     @app.after_request

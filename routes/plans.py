@@ -34,7 +34,7 @@ def create_plan():
         data = schemas.PlanCreate(**request.get_json(force=True))
     except ValidationError as e:
         raise ApiError("Validation error", 400, _pydantic_errors(e))
-    plan = models.create_plan(data.model_dump())
+    plan = models.create_plan(data.model_dump(mode="json"))
     return jsonify(plan), 201
 
 @plans_bp.get("/<uuid:plan_id>")

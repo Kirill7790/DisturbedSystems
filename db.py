@@ -20,6 +20,12 @@ def get_conn():
 def get_cursor(commit: bool = False):
     with pool.connection() as conn:
         with conn.cursor() as cur:
-            yield cur
-            if commit:
-                conn.commit()
+            try:
+                yield cur
+                if commit:
+                    conn.commit()
+                else:
+                    conn.rollback()
+            except Exception:
+                conn.rollback()
+                raise
