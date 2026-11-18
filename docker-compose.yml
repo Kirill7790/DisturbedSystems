@@ -11,6 +11,7 @@ services:
   postgres_00:
     image: postgres:16-alpine
     container_name: postgres_00
+    command: ["postgres", "-c", "wal_level=logical"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -31,6 +32,7 @@ services:
   postgres_01:
     image: postgres:16-alpine
     container_name: postgres_01
+    command: ["postgres", "-c", "wal_level=logical"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -51,6 +53,7 @@ services:
   postgres_02:
     image: postgres:16-alpine
     container_name: postgres_02
+    command: ["postgres", "-c", "wal_level=logical"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -71,6 +74,7 @@ services:
   postgres_03:
     image: postgres:16-alpine
     container_name: postgres_03
+    command: ["postgres", "-c", "wal_level=logical"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -93,7 +97,7 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
-      - ./mapping.json:/app/mapping.json:ro
+      - ./mapping.json:/app/mapping.json
     depends_on:
       postgres_00:
         condition: service_healthy
